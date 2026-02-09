@@ -1,0 +1,34 @@
+name: Server Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies in server folder
+        run: npm install
+        working-directory: server
+
+      - name: Build server
+        run: npm run build
+        working-directory: server
+
+
+
+
+
+
