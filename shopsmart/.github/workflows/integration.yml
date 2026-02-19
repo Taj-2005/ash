@@ -1,0 +1,58 @@
+name: Integration
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # Backend: Install dependencies
+      - name: Install server dependencies
+        run: npm install
+        working-directory: server
+
+      # Backend: Run tests
+      - name: Run server tests
+        run: npm run test
+        working-directory: server
+
+      # Frontend: Install dependencies
+      - name: Install client dependencies
+        run: npm install
+        working-directory: client
+
+      # Frontend: Run linter
+      - name: Run client lint
+        run: npm run lint
+        working-directory: client
+
+      # Frontend: Run tests
+      - name: Run client tests
+        run: npm run test
+        working-directory: client
+
+      # Frontend: Build
+      - name: Build client
+        run: npm run build
+        working-directory: client
