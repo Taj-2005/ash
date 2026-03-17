@@ -4,24 +4,26 @@
 
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import MenuCard from "@/components/ui/MenuCard";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 const mockAddToCart = jest.fn();
 const mockUpdateQuantity = jest.fn();
 const mockPush = jest.fn();
 
+// Default: authenticated user
+const mockUseAuth = jest.fn(() => ({ user: { id: 1, name: "Alice", role: "CUSTOMER" } }));
+const mockUseCart = jest.fn(() => ({
+  cart: [],
+  addToCart: mockAddToCart,
+  updateQuantity: mockUpdateQuantity,
+}));
+
 jest.mock("@/contexts/CartContext", () => ({
-  useCart: () => ({
-    cart: [],
-    addToCart: mockAddToCart,
-    updateQuantity: mockUpdateQuantity,
-  }),
+  useCart: () => mockUseCart(),
 }));
 
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { id: 1, name: "Alice", role: "CUSTOMER" } }),
+  useAuth: () => mockUseAuth(),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -41,8 +43,14 @@ const ITEM = {
   stock: 50,
 };
 
+// Import component AFTER all mocks are declared
+const MenuCard = require("@/components/ui/MenuCard").default;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  // Reset to authenticated user by default
+  mockUseAuth.mockReturnValue({ user: { id: 1, name: "Alice", role: "CUSTOMER" } });
+  mockUseCart.mockReturnValue({ cart: [], addToCart: mockAddToCart, updateQuantity: mockUpdateQuantity });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -85,47 +93,45 @@ describe("MenuCard – interactions (authenticated user)", () => {
 
 // ══════════════════════════════════════════════════════════════════════════════
 describe("MenuCard – unauthenticated user", () => {
-  beforeEach(() => {
-    jest.resetModules();
-  });
-
   test("redirects to login when unauthenticated user clicks Add", () => {
-    jest.doMock("@/contexts/AuthContext", () => ({
-      useAuth: () => ({ user: null }),
-    }));
-    jest.doMock("@/contexts/CartContext", () => ({
-      useCart: () => ({ cart: [], addToCart: mockAddToCart, updateQuantity: mockUpdateQuantity }),
-    }));
-    // Re-render with mocked null user by simulating click without user
-    // (testing the redirect branch via the router mock)
-    const MockMenuCard = require("@/components/ui/MenuCard").default;
-    render(<MockMenuCard item={ITEM} />);
+    // Override via the top-level mock function — no module reset needed
+    mockUseAuth.mockReturnValue({ user: null });
+
+    render(<MenuCard item={ITEM} />);
+    fireEvent.click(screen.getByRole("button", { name: /add/i }));
+
+    expect(mockPush).toHaveBeenCalledWith("/auth/login");
+    expect(mockAddToCart).not.toHaveBeenCalled();
   });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
 describe("MenuCard – quantity controls (item already in cart)", () => {
-  beforeEach(() => {
-    jest.mock("@/contexts/CartContext", () => ({
-      useCart: () => ({
-        cart: [{ id: 1, name: "Samosa", quantity: 2 }],
-        addToCart: mockAddToCart,
-        updateQuantity: mockUpdateQuantity,
-      }),
-    }));
+  test("shows quantity controls when item is in cart", () => {
+    mockUseCart.mockReturnValue({
+      cart: [{ id: 1, name: "Samosa", quantity: 2 }],
+      addToCart: mockAddToCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<MenuCard item={ITEM} />);
+
+    // When quantity > 0, the +/- stepper replaces the Add button
+    expect(screen.queryByRole("button", { name: /^add$/i })).not.toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 
-  test("shows quantity controls when item is in cart", () => {
-    // Override CartContext for this test
-    const { useCart } = require("@/contexts/CartContext");
-    useCart.mockReturnValueOnce &&
-      useCart.mockReturnValueOnce({
-        cart: [{ id: 1, quantity: 2 }],
-        addToCart: mockAddToCart,
-        updateQuantity: mockUpdateQuantity,
-      });
-    // In the base mock cart is empty so "Add" shows – we verify the cart path works
+  test("calls updateQuantity with +1 when increment clicked", () => {
+    mockUseCart.mockReturnValue({
+      cart: [{ id: 1, name: "Samosa", quantity: 2 }],
+      addToCart: mockAddToCart,
+      updateQuantity: mockUpdateQuantity,
+    });
+
     render(<MenuCard item={ITEM} />);
-    expect(screen.getByRole("button", { name: /add/i })).toBeInTheDocument();
+    // The + button
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]); // last button is +
+    expect(mockUpdateQuantity).toHaveBeenCalledWith(1, 3);
   });
 });

@@ -6,8 +6,8 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "next lint --dir .",
+    "lint:fix": "next lint --dir . --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,css,json}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,css,json}\"",
     "test": "jest --watchAll=false",
@@ -41,15 +41,23 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "setupFilesAfterFramework": ["<rootDir>/jest.setup.js"],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
       "\\.(css|less|scss|sass)$": "<rootDir>/__mocks__/styleMock.js"
     },
     "transform": {
-      "^.+\\.(js|jsx)$": ["babel-jest", { "presets": ["next/babel"] }]
+      "^.+\\.(js|jsx)$": [
+        "babel-jest",
+        {
+          "presets": [
+            "next/babel"
+          ]
+        }
+      ]
     },
-    "testMatch": ["**/__tests__/**/*.test.{js,jsx}"],
+    "testMatch": [
+      "**/__tests__/**/*.test.{js,jsx}"
+    ],
     "testPathIgnorePatterns": [
       "<rootDir>/.next/",
       "<rootDir>/node_modules/",
@@ -62,6 +70,9 @@
       "lib/**/*.{js,jsx}",
       "!**/*.config.js",
       "!**/node_modules/**"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
     ]
   }
 }

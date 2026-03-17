@@ -3,10 +3,16 @@
  */
 
 import React from "react";
-import { render, act, screen } from "@testing-library/react";
+import { render, act, screen, cleanup } from "@testing-library/react";
 import { CartProvider, useCart } from "@/contexts/CartContext";
 
-// ── Helper: component that exposes cart state for assertions ───────────────────
+// Clear localStorage and unmount after every test so cart state never leaks
+beforeEach(() => {
+  localStorage.clear();
+});
+afterEach(cleanup);
+
+// ── Helper: component that exposes cart state for assertions ──────────────────
 const CartConsumer = () => {
   const { cart, addToCart, updateQuantity, clearCart, getCartTotal, getCartCount } = useCart();
   return (
@@ -38,7 +44,7 @@ const renderWithCart = () =>
     </CartProvider>
   );
 
-// ══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 describe("CartContext", () => {
   test("starts with an empty cart", () => {
     renderWithCart();
@@ -55,8 +61,8 @@ describe("CartContext", () => {
 
   test("addToCart increments quantity when same item is added again", () => {
     renderWithCart();
-    act(() => screen.getByText("Add Samosa").click());
-    act(() => screen.getByText("Add Samosa").click());
+    act(() => screen.getByText("Add Samosa").click()); // qty → 1
+    act(() => screen.getByText("Add Samosa").click()); // qty → 2
     expect(screen.getByTestId("item-1")).toHaveTextContent("Samosa × 2");
     expect(screen.getByTestId("count").textContent).toBe("2");
   });
@@ -78,9 +84,8 @@ describe("CartContext", () => {
 
   test("getCartTotal calculates correctly with multiple items", () => {
     renderWithCart();
-    act(() => screen.getByText("Add Samosa").click()); // 15
-    act(() => screen.getByText("Add Chai").click());    // 10
-    // total = 15 + 10 = 25
+    act(() => screen.getByText("Add Samosa").click()); // ₹15
+    act(() => screen.getByText("Add Chai").click());   // ₹10
     expect(parseFloat(screen.getByTestId("total").textContent)).toBeCloseTo(25);
   });
 
