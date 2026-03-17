@@ -4,7 +4,7 @@ const getAllMenuItems = async (req, res) => {
   try {
     const menuItems = await prisma.menuItem.findMany({
       where: { isAvailable: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
     res.status(200).json(menuItems);
   } catch (error) {
@@ -22,7 +22,7 @@ const getMenuItemById = async (req, res) => {
 
   try {
     const menuItem = await prisma.menuItem.findUnique({
-      where: { id: itemId }
+      where: { id: itemId },
     });
 
     if (!menuItem) {
@@ -49,8 +49,8 @@ const createMenuItem = async (req, res) => {
         imageUrl,
         stock,
         isAvailable,
-        popular
-      }
+        popular,
+      },
     });
 
     res.status(201).json({ success: true, menuItem });
@@ -83,8 +83,8 @@ const updateMenuItem = async (req, res) => {
         imageUrl,
         stock,
         isAvailable,
-        popular
-      }
+        popular,
+      },
     });
 
     res.status(200).json({ success: true, menuItem });
@@ -106,7 +106,7 @@ const deleteMenuItem = async (req, res) => {
 
   try {
     await prisma.menuItem.delete({
-      where: { id: itemId }
+      where: { id: itemId },
     });
 
     res.status(200).json({ success: true, message: 'Menu item deleted successfully.' });
@@ -124,5 +124,5 @@ module.exports = {
   getMenuItemById,
   createMenuItem,
   updateMenuItem,
-  deleteMenuItem
+  deleteMenuItem,
 };

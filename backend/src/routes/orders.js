@@ -7,13 +7,11 @@ const {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
-  deleteOrder
+  deleteOrder,
 } = require('../controllers/orderController');
-
 
 router.post('/checkout', authenticateToken, createCheckout);
 router.post('/confirm', authenticateToken, confirmOrder);
-
 
 router.get('/', authenticateToken, getAllOrders);
 router.get('/:id', authenticateToken, getOrderById);

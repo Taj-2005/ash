@@ -19,9 +19,7 @@ const {
   createCheckout,
   confirmOrder,
   getAllOrders,
-  getOrderById,
   updateOrderStatus,
-  deleteOrder,
 } = require('../../controllers/orderController');
 
 const mockRes = () => {

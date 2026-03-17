@@ -1,8 +1,8 @@
 const express = require('express');
-const cors = require('cors'); 
-const dotenv = require('dotenv'); 
+const cors = require('cors');
+const dotenv = require('dotenv');
 
-const authRouter = require('./src/routes/auth'); 
+const authRouter = require('./src/routes/auth');
 const menuRouter = require('./src/routes/menu');
 const orderRouter = require('./src/routes/orders');
 const userRouter = require('./src/routes/users');
@@ -18,35 +18,32 @@ const allowedOrigins = [
   'https://campus-bites-web.vercel.app',
   'https://campus-bites-server.vercel.app',
   'http://localhost:3000',
-  'http://localhost:3001'
+  'http://localhost:3001',
 ];
 
 app.use(cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      
-      console.error('[CORS] Blocked origin:', origin);
-      return callback(new Error('CORS policy violation'), false);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.error('[CORS] Blocked origin:', origin);
+    return callback(new Error('CORS policy violation'), false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json()); 
-
+app.use(express.json());
 
 const { sendOrderUpdate, sendVendorOrderAlert, broadcastStoreStatus } = require('./src/utils/pusher');
 
 global.sendOrderUpdate = sendOrderUpdate;
-global.sendVendorOrderAlert = sendVendorOrderAlert; 
+global.sendVendorOrderAlert = sendVendorOrderAlert;
 global.broadcastStoreStatus = broadcastStoreStatus;
-
-
 
 app.use('/api/auth', authRouter);
 app.use('/api/menu', menuRouter);
@@ -56,21 +53,21 @@ app.use('/api/upload', uploadRouter);
 app.use('/api/store', storeRouter);
 
 app.get('/api/status', (req, res) => {
-  res.json({ 
-    message: 'Campus Bites API is running smoothly!', 
+  res.json({
+    message: 'Campus Bites API is running smoothly!',
     service: 'Backend',
     realtimeProvider: 'Pusher',
     features: ['Customer Notifications', 'Vendor Alerts', 'Store Status'],
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     message: 'Campus Bites API',
     version: '2.0.0',
-    provider: 'Pusher'
+    provider: 'Pusher',
   });
 });
 

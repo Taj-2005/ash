@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
-
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -25,37 +24,35 @@ const signup = async (req, res) => {
         name,
         email,
         passwordHash: hashedPassword,
-        role: 'CUSTOMER'
-      }
+        role: 'CUSTOMER',
+      },
     });
 
     const token = jwt.sign(
-      { 
-        id: user.id,       
+      {
+        id: user.id,
         email: user.email,
         role: user.role,
-        name: user.name
+        name: user.name,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
 
-    
     res.status(201).json({
       token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error('[Auth] Signup error:', error);
     res.status(500).json({ error: 'Failed to sign up' });
   }
 };
-
 
 const login = async (req, res) => {
   try {
@@ -75,19 +72,16 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-  
     const token = jwt.sign(
-      { 
-        id: user.id,       
+      {
+        id: user.id,
         email: user.email,
         role: user.role,
-        name: user.name
+        name: user.name,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
-
-    
 
     res.json({
       token,
@@ -95,8 +89,8 @@ const login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error('[Auth] Login error:', error);

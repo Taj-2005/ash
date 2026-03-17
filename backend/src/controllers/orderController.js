@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 const createCheckout = async (req, res) => {
   try {
     const { totalAmount, items } = req.body;
-    
+
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
@@ -24,14 +24,13 @@ const createCheckout = async (req, res) => {
       orderId: mockOrderId,
       amount: Math.round(totalAmount * 100),
       currency: 'INR',
-      keyId: 'rzp_test_mock'
+      keyId: 'rzp_test_mock',
     });
   } catch (error) {
     console.error('Error creating checkout:', error);
     res.status(500).json({ error: 'Failed to create checkout' });
   }
 };
-
 
 const confirmOrder = async (req, res) => {
   try {
@@ -62,24 +61,24 @@ const confirmOrder = async (req, res) => {
         items: {
           create: items.map(item => ({
             menuItemId: parseInt(item.menuItemId),
-            quantity: parseInt(item.quantity)
-          }))
-        }
+            quantity: parseInt(item.quantity),
+          })),
+        },
       },
       include: {
-        items: { 
-          include: { 
-            menuItem: true 
-          } 
+        items: {
+          include: {
+            menuItem: true,
+          },
         },
-        user: { 
-          select: { 
-            id: true, 
-            name: true, 
-            email: true 
-          } 
-        }
-      }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (global.sendOrderUpdate) {
@@ -87,7 +86,7 @@ const confirmOrder = async (req, res) => {
         orderId: order.id,
         status: 'PENDING',
         message: `Your order #${order.id} has been placed successfully!`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -101,10 +100,10 @@ const confirmOrder = async (req, res) => {
         items: order.items.map(item => ({
           name: item.menuItem.name,
           quantity: item.quantity,
-          price: item.menuItem.price
+          price: item.menuItem.price,
         })),
         message: `New order #${order.id} from ${order.user.name}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -112,9 +111,9 @@ const confirmOrder = async (req, res) => {
     res.status(201).json({ success: true, order });
   } catch (error) {
     console.error('Error confirming order:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to confirm order',
-      details: error.message 
+      details: error.message,
     });
   }
 };
@@ -125,27 +124,27 @@ const getAllOrders = async (req, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const whereClause = req.user.role === 'VENDOR' 
-      ? {} 
+    const whereClause = req.user.role === 'VENDOR'
+      ? {}
       : { userId: req.user.id };
 
     const orders = await prisma.order.findMany({
       where: whereClause,
       include: {
-        items: { 
-          include: { 
-            menuItem: true 
-          } 
+        items: {
+          include: {
+            menuItem: true,
+          },
         },
-        user: { 
-          select: { 
-            id: true, 
-            name: true, 
-            email: true 
-          } 
-        }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     res.json({ orders });
@@ -165,19 +164,19 @@ const getOrderById = async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        items: { 
-          include: { 
-            menuItem: true 
-          } 
+        items: {
+          include: {
+            menuItem: true,
+          },
         },
-        user: { 
-          select: { 
-            id: true, 
-            name: true, 
-            email: true 
-          } 
-        }
-      }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -211,15 +210,15 @@ const updateOrderStatus = async (req, res) => {
 
     const existingOrder = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { 
-        user: { 
-          select: { 
-            id: true, 
-            name: true, 
-            email: true 
-          } 
-        } 
-      }
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!existingOrder) {
@@ -230,19 +229,19 @@ const updateOrderStatus = async (req, res) => {
       where: { id: orderId },
       data: { status },
       include: {
-        items: { 
-          include: { 
-            menuItem: true 
-          } 
+        items: {
+          include: {
+            menuItem: true,
+          },
         },
-        user: { 
-          select: { 
-            id: true, 
-            name: true, 
-            email: true 
-          } 
-        }
-      }
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     const statusMessages = {
@@ -250,7 +249,7 @@ const updateOrderStatus = async (req, res) => {
       'PROCESSING': `Your order #${orderId} is being prepared! 👨‍🍳`,
       'READY': `Your order #${orderId} is ready for pickup! 🎉`,
       'COMPLETED': `Your order #${orderId} has been completed. Thank you!`,
-      'CANCELLED': `Your order #${orderId} has been cancelled`
+      'CANCELLED': `Your order #${orderId} has been cancelled`,
     };
 
     if (global.sendOrderUpdate) {
@@ -258,7 +257,7 @@ const updateOrderStatus = async (req, res) => {
         orderId,
         status,
         message: statusMessages[status],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -270,7 +269,6 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-
 const deleteOrder = async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -279,7 +277,7 @@ const deleteOrder = async (req, res) => {
 
     const orderId = parseInt(req.params.id);
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
     });
 
     if (!order) {
@@ -302,7 +300,7 @@ const deleteOrder = async (req, res) => {
         orderId,
         status: 'CANCELLED',
         message: `Your order #${orderId} has been cancelled by the vendor`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -319,5 +317,5 @@ module.exports = {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
-  deleteOrder
+  deleteOrder,
 };

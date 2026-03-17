@@ -4,9 +4,9 @@ const prisma = new PrismaClient();
 const getStoreStatus = async (req, res) => {
   try {
     console.log('[Store] 📖 Fetching store status...');
-    
+
     const storeSetting = await prisma.storeSetting.findUnique({
-      where: { key: 'isOpen' }
+      where: { key: 'isOpen' },
     });
 
     if (storeSetting) {
@@ -15,19 +15,17 @@ const getStoreStatus = async (req, res) => {
       return res.json({ isOpen });
     }
 
-
     console.log('[Store] ℹ️ No status found, creating default (open)');
     await prisma.storeSetting.create({
       data: {
         key: 'isOpen',
-        value: 'true'
-      }
+        value: 'true',
+      },
     });
 
     res.json({ isOpen: true });
   } catch (error) {
     console.error('[Store] ❌ Error getting status:', error);
-  
     res.json({ isOpen: true });
   }
 };
@@ -46,13 +44,14 @@ const updateStoreStatus = async (req, res) => {
 
     console.log(`[Store] 🔄 Updating status to: ${isOpen ? 'OPEN' : 'CLOSED'}`);
 
-    const storeSetting = await prisma.storeSetting.upsert({
+    // upsert result intentionally not stored — we only need side effects
+    await prisma.storeSetting.upsert({
       where: { key: 'isOpen' },
       update: { value: isOpen.toString() },
       create: {
         key: 'isOpen',
-        value: isOpen.toString()
-      }
+        value: isOpen.toString(),
+      },
     });
 
     console.log('[Store] ✅ Status updated successfully');
@@ -62,10 +61,10 @@ const updateStoreStatus = async (req, res) => {
       console.log('[Store] 📡 Broadcasted status change to all users');
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       isOpen,
-      message: `Store is now ${isOpen ? 'OPEN' : 'CLOSED'}`
+      message: `Store is now ${isOpen ? 'OPEN' : 'CLOSED'}`,
     });
   } catch (error) {
     console.error('[Store] ❌ Error updating status:', error);
@@ -75,5 +74,5 @@ const updateStoreStatus = async (req, res) => {
 
 module.exports = {
   getStoreStatus,
-  updateStoreStatus
+  updateStoreStatus,
 };
