@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+   
+    --background: 40 20% 97%;
+    --foreground: 0 0% 10%;
+    
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    
+    
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    
+    
+    --secondary: 25 75% 55%;
+    --secondary-foreground: 0 0% 100%;
+    
+    
+    --muted: 40 20% 94%;
+    --muted-foreground: 0 0% 45%;
+    
+    
+    --accent: 40 20% 94%;
+    --accent-foreground: 0 0% 9%;
+    
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    
+  
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    
+ 
+    --ring: 25 75% 55%;
+    --radius: 1rem;
+  }
+}
+
+@layer utilities {
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+ 
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+
+@media (max-width: 768px) {
+ 
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+ 
+  .max-w-7xl {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.25rem !important;
+  }
+
+  
+  button, a, input {
+    min-height: 44px;
+  }
+
+
+  .sm\:flex-row {
+    flex-direction: column;
+  }
+}
+
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid {
+    gap: 1rem;
+  }
+}
+
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+
+.scrollbar-hide {
+  -ms-overflow-style: none;  
+  scrollbar-width: none; 
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+body {
+  overflow-x: hidden;
+}
+
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
