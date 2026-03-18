@@ -43,18 +43,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
+      - name: Setup SSH
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
-          chmod 600 ~/.ssh/ec2_key.pem
+          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-      - name: Deploy via SSH
+      - name: Deploy to EC2
         shell: bash
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -80,16 +80,17 @@ jobs:
           fi
 
           printf "%s" "$BACKEND_ENV" > /tmp/backend.env
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/ec2_key.pem /tmp/backend.env "$EC2_USER@$EC2_HOST:/tmp/backend.env"
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa /tmp/backend.env "$EC2_USER@$EC2_HOST:/tmp/backend.env"
 
           REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
           BRANCH="${GITHUB_REF_NAME}"
 
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/ec2_key.pem "$EC2_USER@$EC2_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' REPO_URL='$REPO_URL' BRANCH='$BRANCH' bash -s" << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" << EOF
           set -euo pipefail
 
           DEPLOY_PATH="${DEPLOY_PATH:-/opt/campus-bites}"
+          REPO_URL="${REPO_URL}"
+          BRANCH="${BRANCH}"
 
           sudo apt-get update -y
           sudo apt-get install -y git ca-certificates curl
@@ -103,17 +104,17 @@ jobs:
             sudo npm install -g pm2
           fi
 
-          sudo mkdir -p "$DEPLOY_PATH"
-          REMOTE_USER="$(id -un)"
-          sudo chown -R "$REMOTE_USER:$REMOTE_USER" "$DEPLOY_PATH"
+          sudo mkdir -p "\$DEPLOY_PATH"
+          REMOTE_USER="\$(id -un)"
+          sudo chown -R "\$REMOTE_USER:\$REMOTE_USER" "\$DEPLOY_PATH"
 
-          if [ ! -d "$DEPLOY_PATH/.git" ]; then
-            git clone "$REPO_URL" "$DEPLOY_PATH"
+          if [ ! -d "\$DEPLOY_PATH/.git" ]; then
+            git clone "\$REPO_URL" "\$DEPLOY_PATH"
           fi
 
-          cd "$DEPLOY_PATH"
+          cd "\$DEPLOY_PATH"
           git fetch --all --prune
-          git reset --hard "origin/$BRANCH"
+          git reset --hard "origin/\$BRANCH"
 
           if [ -f /tmp/backend.env ]; then
             install -m 600 /tmp/backend.env backend/.env
@@ -124,14 +125,14 @@ jobs:
           npx prisma generate
           npx prisma migrate deploy
 
-          pm2 delete campus-bites-api || true
-          pm2 start npm --name campus-bites-api -- start
+          pm2 restart campus-bites-api || pm2 start npm --name campus-bites-api -- start
           pm2 save
 
           pm2 list
+          echo "✅ Deployment done"
           EOF
 
       - name: Cleanup SSH key
         if: always()
-        run: rm -f ~/.ssh/ec2_key.pem
+        run: rm -f ~/.ssh/id_rsa
 
