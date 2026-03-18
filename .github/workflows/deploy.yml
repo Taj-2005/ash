@@ -104,7 +104,8 @@ jobs:
           fi
 
           sudo mkdir -p "$DEPLOY_PATH"
-          sudo chown -R "$USER:$USER" "$DEPLOY_PATH"
+          REMOTE_USER="$(id -un)"
+          sudo chown -R "$REMOTE_USER:$REMOTE_USER" "$DEPLOY_PATH"
 
           if [ ! -d "$DEPLOY_PATH/.git" ]; then
             git clone "$REPO_URL" "$DEPLOY_PATH"
