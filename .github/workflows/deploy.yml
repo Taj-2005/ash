@@ -53,6 +53,15 @@ jobs:
 
             # Backend setup (idempotent)
             cd backend
+
+            # If provided, write a .env file from a GitHub secret called ENV_FILE.
+            # This is useful when the server requires environment variables but does not
+            # have them stored in the repo.
+            if [ -n "${{ secrets.ENV_FILE }}" ]; then
+              echo "Writing .env from ENV_FILE secret"
+              printf '%s' "${{ secrets.ENV_FILE }}" > .env
+            fi
+
             npm ci --omit=dev
             npx prisma migrate deploy
             pm2 describe campus-bites-backend > /dev/null 2>&1 \
