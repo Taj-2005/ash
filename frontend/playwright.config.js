@@ -20,13 +20,12 @@ export default defineConfig({
     },
   ],
 
-  // Start Next.js dev server automatically when running locally
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "npm run dev",
-        url: "http://localhost:3000",
-        reuseExistingServer: true,
-        timeout: 120_000,
-      },
+  // Start Next.js dev server automatically (used in local runs and CI).
+  // `reuseExistingServer: true` allows running tests against a server already started by `npm run dev`.
+  webServer: {
+    command: "npm run dev",
+    url: "http://localhost:3000",
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });
