@@ -144,7 +144,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="bg-card border-b border-border sticky top-0 z-40 shadow-sm">
+      <nav role="navigation" className="bg-card border-b border-border sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-4">
             
@@ -360,10 +360,11 @@ export default function Navbar() {
                       onClick={() => setShowCart(true)}
                       className="relative p-2 hover:bg-muted rounded-full transition-colors"
                       title="Cart"
+                      aria-label={`Cart (${getCartCount()} items)`}
                     >
                       <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
                       {getCartCount() > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        <span data-testid="cart-count" className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                           {getCartCount()}
                         </span>
                       )}
@@ -392,10 +393,16 @@ export default function Navbar() {
 
                   <button
                     onClick={() => setShowCart(true)}
-                    className="p-2 hover:bg-muted rounded-full transition-colors"
+                    className="relative p-2 hover:bg-muted rounded-full transition-colors"
                     title="Cart"
+                    aria-label={`Cart (${getCartCount()} items)`}
                   >
                     <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-foreground" />
+                    {getCartCount() > 0 && (
+                      <span data-testid="cart-count" className="absolute -top-1 -right-1 bg-secondary text-secondary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {getCartCount()}
+                      </span>
+                    )}
                   </button>
                 </>
               )}
@@ -418,7 +425,7 @@ export default function Navbar() {
             </div>
           )}
         </div>
-      </header>
+      </nav>
 
       
       {showMobileMenu && (
