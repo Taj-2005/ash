@@ -1,16 +1,20 @@
-name: Deploy Campus Bites to AWS EC2
+name: Deploy Backend to AWS EC2
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
   pull_request:
 
 concurrency:
-  group: deploy-campus-bites
+  group: deploy-backend
   cancel-in-progress: true
 
 jobs:
   pr-check:
-    name: PR check (build)
+    name: PR check (backend)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
@@ -31,22 +35,13 @@ jobs:
         run: npx prisma generate
         working-directory: backend
 
-      - name: Build backend
-        run: npm run build --if-present
+      - name: Lint backend
+        run: npm run lint
         working-directory: backend
-
-      # ---- Frontend ----
-      - name: Install frontend deps
-        run: npm ci
-        working-directory: frontend
-
-      - name: Build frontend
-        run: npm run build --if-present
-        working-directory: frontend
 
 
   deploy:
-    name: Deploy to EC2
+    name: Deploy backend to EC2
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
@@ -67,16 +62,16 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
           DEPLOY_PATH: ${{ secrets.CAMPUS_BITES_DEPLOY_PATH || '/opt/campus-bites' }}
-          SERVER_ENV: ${{ secrets.CAMPUS_BITES_SERVER_ENV }}
+          BACKEND_ENV: ${{ secrets.CAMPUS_BITES_SERVER_ENV }}
         run: |
-          if [ -z "${SERVER_ENV:-}" ]; then
-            echo "[ERROR] Missing CAMPUS_BITES_SERVER_ENV"
+          if [ -z "${BACKEND_ENV:-}" ]; then
+            echo "[ERROR] Missing CAMPUS_BITES_SERVER_ENV (backend .env contents)"
             exit 1
           fi
 
-          printf "%s" "$SERVER_ENV" > /tmp/server.env
+          printf "%s" "$BACKEND_ENV" > /tmp/backend.env
 
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem /tmp/server.env "$EC2_USER@$EC2_HOST:/tmp/server.env"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem /tmp/backend.env "$EC2_USER@$EC2_HOST:/tmp/backend.env"
 
           REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
           BRANCH="${GITHUB_REF_NAME}"
@@ -87,7 +82,7 @@ jobs:
 
           DEPLOY_PATH="${DEPLOY_PATH:-/opt/campus-bites}"
 
-          echo "🚀 Starting deployment..."
+          echo "🚀 Starting backend deployment..."
 
           # ---- Install dependencies ----
           sudo apt-get update -y
@@ -119,9 +114,8 @@ jobs:
           git reset --hard origin/$BRANCH
 
           # ---- ENV ----
-          if [ -f /tmp/server.env ]; then
-            install -m 600 /tmp/server.env backend/.env
-            install -m 600 /tmp/server.env frontend/.env
+          if [ -f /tmp/backend.env ]; then
+            install -m 600 /tmp/backend.env backend/.env
           fi
 
           # ============================
@@ -131,32 +125,13 @@ jobs:
 
           cd backend
 
-          npm ci --include=dev
+          npm ci --omit=dev
           npx prisma generate
           npx prisma migrate deploy
-          npm run build
-
-          # Restart backend safely
+          
+          # Restart backend safely (uses backend/package.json start script)
           pm2 delete campus-bites-api || true
-          pm2 start server.js --name campus-bites-api
-
-          cd ..
-
-          # ============================
-          # FRONTEND
-          # ============================
-          echo "⚙️ Setting up frontend..."
-
-          cd frontend
-
-          npm ci
-          npm run build
-
-          # Restart frontend safely
-          pm2 delete campus-bites-client || true
-          pm2 start npm --name campus-bites-client -- start -- -p 3000 -H 0.0.0.0
-
-          cd ..
+          pm2 start npm --name campus-bites-api -- start
 
           # ---- Save PM2 ----
           pm2 save
