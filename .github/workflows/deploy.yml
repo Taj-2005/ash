@@ -54,18 +54,6 @@ jobs:
           printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
           chmod 600 ~/.ssh/ec2_key.pem
 
-      - name: Add EC2 host to known_hosts
-        shell: bash
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          set -euo pipefail
-          if [ -z "${EC2_HOST:-}" ]; then
-            echo "[ERROR] Missing secret: EC2_HOST"
-            exit 1
-          fi
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
-
       - name: Deploy via SSH
         shell: bash
         env:
@@ -92,12 +80,12 @@ jobs:
           fi
 
           printf "%s" "$BACKEND_ENV" > /tmp/backend.env
-          scp -i ~/.ssh/ec2_key.pem /tmp/backend.env "$EC2_USER@$EC2_HOST:/tmp/backend.env"
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/ec2_key.pem /tmp/backend.env "$EC2_USER@$EC2_HOST:/tmp/backend.env"
 
           REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
           BRANCH="${GITHUB_REF_NAME}"
 
-          ssh -i ~/.ssh/ec2_key.pem "$EC2_USER@$EC2_HOST" \
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/ec2_key.pem "$EC2_USER@$EC2_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' REPO_URL='$REPO_URL' BRANCH='$BRANCH' bash -s" << 'EOF'
           set -euo pipefail
 
