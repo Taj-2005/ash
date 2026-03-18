@@ -56,12 +56,14 @@ jobs:
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
+          EC2_PORT: ${{ secrets.EC2_PORT || '22' }}
           SHOPSMART_DEPLOY_PATH: ${{ secrets.SHOPSMART_DEPLOY_PATH || '/home/ubuntu/campus-bites' }}
           SHOPSMART_SERVER_ENV: ${{ secrets.SHOPSMART_SERVER_ENV }}
         run: |
           DEPLOY_PATH="${SHOPSMART_DEPLOY_PATH:-/home/ubuntu/campus-bites}"
           REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
           BRANCH="${GITHUB_REF_NAME}"
+          EC2_PORT="${EC2_PORT:-22}"
 
           if [ -z "${SHOPSMART_SERVER_ENV:-}" ]; then
             echo "[ERROR] Missing secret SHOPSMART_SERVER_ENV (server .env contents)."
@@ -72,12 +74,14 @@ jobs:
           printf "%s" "$SHOPSMART_SERVER_ENV" > /tmp/shopsmart-server.env
 
           SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o IdentitiesOnly=yes"
+          SCP_PORT_OPT="-P $EC2_PORT"
+          SSH_PORT_OPT="-p $EC2_PORT"
 
-          echo "[LOCAL] Uploading env file to EC2 ($EC2_HOST)..."
-          scp $SSH_OPTS -i ~/.ssh/ec2_key.pem /tmp/shopsmart-server.env "$EC2_USER@$EC2_HOST:/tmp/shopsmart-server.env"
+          echo "[LOCAL] Uploading env file to EC2 ($EC2_HOST:$EC2_PORT)..."
+          scp $SSH_OPTS $SCP_PORT_OPT -i ~/.ssh/ec2_key.pem /tmp/shopsmart-server.env "$EC2_USER@$EC2_HOST:/tmp/shopsmart-server.env"
 
           echo "[LOCAL] Running deploy script on EC2..."
-          ssh $SSH_OPTS -i ~/.ssh/ec2_key.pem \
+          ssh $SSH_OPTS $SSH_PORT_OPT -i ~/.ssh/ec2_key.pem \
             "$EC2_USER@$EC2_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' REPO_URL='$REPO_URL' BRANCH='$BRANCH' bash -s" <<'EOF'
           set -euxo pipefail
