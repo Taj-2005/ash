@@ -38,6 +38,19 @@ jobs:
               git clone https://github.com/${{ github.repository }} .
             fi
 
+            # Ensure Node.js + npm are available (some EC2 AMIs may not include them by default)
+            if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+              echo "Node.js not found; installing Node.js 20.x"
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt-get update
+              sudo apt-get install -y nodejs
+            fi
+
+            # Ensure pm2 is installed globally (used to manage services)
+            if ! command -v pm2 >/dev/null 2>&1; then
+              sudo npm install -g pm2
+            fi
+
             # Backend setup (idempotent)
             cd backend
             npm ci --omit=dev
