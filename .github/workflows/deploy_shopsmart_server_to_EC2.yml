@@ -1,0 +1,128 @@
+name: Deploy ShopSmart Server to AWS EC2
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy_shopsmart_server_to_EC2.yml"
+
+concurrency:
+  group: deploy-shopsmart-server
+  cancel-in-progress: true
+
+jobs:
+  pr-check:
+    name: PR check (server build)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build server
+        run: npm run build
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+
+      - name: Deploy + restart (SSH)
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
+          SHOPSMART_DEPLOY_PATH: ${{ secrets.SHOPSMART_DEPLOY_PATH || '/opt/shopsmart' }}
+          SHOPSMART_SERVER_ENV: ${{ secrets.SHOPSMART_SERVER_ENV }}
+        run: |
+          DEPLOY_PATH="${SHOPSMART_DEPLOY_PATH:-/opt/shopsmart}"
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [ -z "${SHOPSMART_SERVER_ENV:-}" ]; then
+            echo "[ERROR] Missing secret SHOPSMART_SERVER_ENV (server .env contents)."
+            exit 1
+          fi
+
+          # Copy backend env as a file (safe for multiline secrets)
+          printf "%s" "$SHOPSMART_SERVER_ENV" > /tmp/shopsmart-server.env
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem /tmp/shopsmart-server.env "$EC2_USER@$EC2_HOST:/tmp/shopsmart-server.env"
+
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' REPO_URL='$REPO_URL' BRANCH='$BRANCH' bash -s" <<'EOF'
+          set -euo pipefail
+
+          # Ensure base tools exist
+          if ! command -v git >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y git
+          fi
+
+          # Ensure Node + npm exist (Node 20 LTS)
+          if ! command -v node >/dev/null 2>&1; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
+
+          # Ensure pm2 exists for process management (idempotent)
+          if ! command -v pm2 >/dev/null 2>&1; then
+            sudo npm install -g pm2
+          fi
+
+          sudo mkdir -p "$DEPLOY_PATH"
+          sudo chown -R "$USER":"$USER" "$DEPLOY_PATH"
+
+          if [ ! -d "$DEPLOY_PATH/.git" ]; then
+            git clone "$REPO_URL" "$DEPLOY_PATH"
+          fi
+
+          cd "$DEPLOY_PATH"
+          git fetch --all --prune
+          git checkout "$BRANCH"
+          git pull --ff-only origin "$BRANCH"
+
+          # Install env file that was copied via scp
+          install -m 600 /tmp/shopsmart-server.env backend/.env
+
+          cd backend
+
+          npm ci --include=dev
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run build
+
+          # Start or reload backend with pm2 (idempotent)
+          pm2 start server.js --name shopsmart-api --update-env || pm2 restart shopsmart-api --update-env
+          pm2 save
+
+          echo "[OK] Deployed ShopSmart backend."
+          EOF
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/ec2_key.pem
