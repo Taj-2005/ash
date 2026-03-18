@@ -2,6 +2,7 @@ name: Deploy Campus Bites to AWS EC2
 
 on:
   workflow_dispatch:
+  pull_request:
 
 concurrency:
   group: deploy-campus-bites
@@ -12,6 +13,7 @@ jobs:
     name: PR check (build)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -19,10 +21,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
 
-      - name: Install server dependencies
+      # ---- Backend ----
+      - name: Install backend deps
         run: npm ci --include=dev
         working-directory: backend
 
@@ -30,114 +31,135 @@ jobs:
         run: npx prisma generate
         working-directory: backend
 
-      - name: Build server
+      - name: Build backend
         run: npm run build --if-present
         working-directory: backend
 
-      - name: Install client dependencies
+      # ---- Frontend ----
+      - name: Install frontend deps
         run: npm ci
         working-directory: frontend
 
-      - name: Build client
+      - name: Build frontend
         run: npm run build --if-present
         working-directory: frontend
 
+
   deploy:
+    name: Deploy to EC2
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ---- Setup SSH ----
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
           chmod 600 ~/.ssh/ec2_key.pem
 
-      - name: Deploy + restart (SSH)
+      # ---- Deploy ----
+      - name: Deploy via SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
-          CAMPUS_BITES_DEPLOY_PATH: ${{ secrets.CAMPUS_BITES_DEPLOY_PATH || '/opt/campus-bites' }}
-          CAMPUS_BITES_SERVER_ENV: ${{ secrets.CAMPUS_BITES_SERVER_ENV }}
+          DEPLOY_PATH: ${{ secrets.CAMPUS_BITES_DEPLOY_PATH || '/opt/campus-bites' }}
+          SERVER_ENV: ${{ secrets.CAMPUS_BITES_SERVER_ENV }}
         run: |
-          DEPLOY_PATH="${CAMPUS_BITES_DEPLOY_PATH:-/opt/campus-bites}"
-          REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
-          BRANCH="${GITHUB_REF_NAME}"
-
-          if [ -z "${CAMPUS_BITES_SERVER_ENV:-}" ]; then
-            echo "[ERROR] Missing secret CAMPUS_BITES_SERVER_ENV (server .env contents)."
-            # Continue anyway or exit 1; using exit 1 based on previous format
+          if [ -z "${SERVER_ENV:-}" ]; then
+            echo "[ERROR] Missing CAMPUS_BITES_SERVER_ENV"
             exit 1
           fi
 
-          # Copy backend env as a file (safe for multiline secrets)
-          printf "%s" "$CAMPUS_BITES_SERVER_ENV" > /tmp/campus-bites-server.env
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem /tmp/campus-bites-server.env "$EC2_USER@$EC2_HOST:/tmp/campus-bites-server.env"
+          printf "%s" "$SERVER_ENV" > /tmp/server.env
 
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem \
-            "$EC2_USER@$EC2_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' REPO_URL='$REPO_URL' BRANCH='$BRANCH' bash -s" <<'EOF'
-          set -euo pipefail
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem /tmp/server.env "$EC2_USER@$EC2_HOST:/tmp/server.env"
 
-          # Ensure base tools exist
-          if ! command -v git >/dev/null 2>&1; then
-            sudo apt-get update -y
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key.pem "$EC2_USER@$EC2_HOST" << 'EOF'
+          set -e
+
+          DEPLOY_PATH="${DEPLOY_PATH:-/opt/campus-bites}"
+
+          echo "🚀 Starting deployment..."
+
+          # ---- Install dependencies ----
+          sudo apt-get update -y
+
+          if ! command -v git >/dev/null; then
             sudo apt-get install -y git
           fi
 
-          # Ensure Node + npm exist (Node 20 LTS)
-          if ! command -v node >/dev/null 2>&1; then
+          if ! command -v node >/dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt-get install -y nodejs
           fi
 
-          # Ensure pm2 exists for process management (idempotent)
-          if ! command -v pm2 >/dev/null 2>&1; then
+          if ! command -v pm2 >/dev/null; then
             sudo npm install -g pm2
           fi
 
+          # ---- Setup project ----
           sudo mkdir -p "$DEPLOY_PATH"
-          sudo chown -R "$USER":"$USER" "$DEPLOY_PATH"
+          sudo chown -R $USER:$USER "$DEPLOY_PATH"
 
           if [ ! -d "$DEPLOY_PATH/.git" ]; then
-            git clone "$REPO_URL" "$DEPLOY_PATH"
+            git clone https://github.com/${GITHUB_REPOSITORY}.git "$DEPLOY_PATH"
           fi
 
           cd "$DEPLOY_PATH"
-          git fetch --all --prune
-          git checkout "$BRANCH"
-          git pull --ff-only origin "$BRANCH"
 
-          # Install env file that was copied via scp
-          if [ -f /tmp/campus-bites-server.env ]; then
-            install -m 600 /tmp/campus-bites-server.env backend/.env
+          git fetch --all
+          git reset --hard origin/${GITHUB_REF_NAME}
+
+          # ---- ENV ----
+          if [ -f /tmp/server.env ]; then
+            install -m 600 /tmp/server.env backend/.env
+            install -m 600 /tmp/server.env frontend/.env
           fi
 
-          # ----- Server Setup -----
+          # ============================
+          # BACKEND
+          # ============================
+          echo "⚙️ Setting up backend..."
+
           cd backend
+
           npm ci --include=dev
           npx prisma generate
           npx prisma migrate deploy
-          npm run build --if-present
+          npm run build
 
-          # Start or reload backend with pm2
-          pm2 start server.js --name campus-bites-api --update-env || pm2 restart campus-bites-api --update-env
-          
+          # Restart backend safely
+          pm2 delete campus-bites-api || true
+          pm2 start dist/server.js --name campus-bites-api
+
           cd ..
 
-          # ----- Client Setup -----
+          # ============================
+          # FRONTEND
+          # ============================
+          echo "⚙️ Setting up frontend..."
+
           cd frontend
+
           npm ci
           npm run build
-          
-          # Start or reload client with pm2 (if served via node/next, else adjust accordingly)
-          pm2 start npm --name campus-bites-client -- start || pm2 restart campus-bites-client
 
+          # Restart frontend safely
+          pm2 delete campus-bites-client || true
+          pm2 start npm --name campus-bites-client -- start -- -p 3000 -H 0.0.0.0
+
+          cd ..
+
+          # ---- Save PM2 ----
           pm2 save
 
-          echo "[OK] Deployed Campus Bites monorepo."
+          echo "✅ Deployment successful!"
+          pm2 list
+
           EOF
 
       - name: Cleanup SSH key
